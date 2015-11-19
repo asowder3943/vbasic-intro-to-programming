@@ -1,0 +1,91 @@
+
+		var objectArray = null;
+		var object = null;
+		
+function setAnnotationProperties(config)
+{
+	
+		// Default icon to indicate an annotation.
+				config.annotationIcon="/images/icons/icon_plain.gif";
+			
+		// Icon to indicate an annotation was written by a learner.
+				config.learnerAnnotationIcon="/hrw/apps/alchemy/editors/studentannoicon.gif";
+			
+		// Icon to indicate an annotation was written by an instructor.
+				config.instructorAnnotationIcon="/hrw/apps/alchemy/editors/teacherannoicon.gif";
+			
+		// Instructor icon for editing highlights.
+				config.instructorHighlightIcon="/hrw/apps/alchemy/editors/teacherhighlighticon.gif";
+			
+		// Learner icon for editing highlights.
+				config.learnerHighlightIcon="";
+			
+		// Default background color of an annotation.
+				config.annotationColor="";
+			
+		// Default background color of a student annotation.
+				config.learnerAnnotationColor="";
+			
+		// Default background color of an instructor annotation.
+				config.instructorAnnotationColor="";
+			
+		// Default background color of a student highlight.
+				config.learnerHighlightColor="yellow";
+			
+		// Default background color of an instructor highlight.
+				config.instructorHighlightColor="lightblue";
+			
+		// Image used for the save annotation button.
+				config.buttonSaveAnnotation="/images/buttons/small_silver/button_save.gif";
+			
+		// Image used for the close annotation button.
+				config.buttonCloseAnnotation="";
+			
+		// Image used for the delete annotation button.
+				config.buttonDeleteAnnotation="/images/buttons/small_silver/button_delete.gif";
+			
+		// Image used for the close highlight button.
+				config.buttonCloseHighlight="/images/buttons/small_silver/button_close.gif";
+			
+		// Image used for the delete highlight button.
+				config.buttonDeleteHighlight="/images/buttons/small_silver/button_delete.gif";
+			
+		// URL of the popup annotation window.
+				config.annotationWindowUrl="/hrw/apps/alchemy/editors/hrw_annotation_form.jsp";
+			
+		// Properties of the popup annotation window.
+				config.annotationWindowProps="LEFT=300,TOP=300,HEIGHT=370,WIDTH=400";
+			
+		// URL of the popup highlight window.
+				config.highlightWindowUrl="/apps/alchemy/editors/annotation_form.html";
+			
+		// Properties of the popup highlight window.
+				config.highlightWindowProps="LEFT=300,TOP=300,HEIGHT=60,WIDTH=320";
+			
+		// Feedback when an annotation saved by instructor.
+				config.instructorAnnotationSavedFeedback="";
+			
+		// Feedback when an annotation saved by learner.
+				config.learnerAnnotationSavedFeedback="";
+			
+		// Feedback when an highlight saved by instructor.
+				config.instructorHighlightSavedFeedback="";
+			
+		// Feedback when an highlight saved by learner.
+				config.learnerHighlightSavedFeedback="";
+			
+		// Feedback when an annotation deleted by instructor.
+				config.instructorAnnotationDeletedFeedback="";
+			
+		// Feedback when an annotation deleted by learner.
+				config.learnerAnnotationDeletedFeedback="";
+			
+		// Feedback when an highlight deleted by instructor.
+				config.instructorHighlightDeletedFeedback="";
+			
+		// Feedback when an highlight deleted by learner.
+				config.learnerHighlightDeletedFeedback="";
+			
+};
+
+	

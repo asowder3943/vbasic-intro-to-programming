@@ -1,0 +1,159 @@
+.clsUIContentCategory
+{
+    BORDER-RIGHT: blue 1px;
+    BORDER-TOP: blue 1px;
+    LEFT: 0px;
+    VISIBILITY: hidden;
+    BORDER-LEFT: blue 1px;
+    WIDTH: 72px;
+    BORDER-BOTTOM: blue 1px;
+    POSITION: absolute;
+    TOP: 0px;
+    BACKGROUND-COLOR: slategray
+}
+.clsUIContentCategoryList
+{
+    BORDER-RIGHT: medium none;
+    BORDER-TOP: medium none;
+    FONT-SIZE: 11px;
+    OVERFLOW: hidden;
+    BORDER-LEFT: medium none;
+    WIDTH: 72px;
+    COLOR: black;
+    BORDER-BOTTOM: medium none;
+    FONT-FAMILY: Arial;
+    BACKGROUND-COLOR: silver;
+    TEXT-ALIGN: center
+}
+.clsUIContentCategoryListDiv
+{
+    LEFT: 0px;
+    VISIBILITY: visible;
+    POSITION: absolute;
+    TOP: 300px
+}
+.clsUIContentCategoryPage
+{
+    BORDER-RIGHT: black 1px;
+    BACKGROUND-COLOR: slategray
+}
+.clsUIselectContent
+{
+    OVERFLOW: hidden;
+    BACKGROUND-COLOR: yellow;
+    BORDER: yellow 1px solid;
+}
+#clsUIselectContent
+{
+    BORDER-RIGHT: yellow 1px solid;
+    BORDER-TOP: yellow 1px solid;
+    OVERFLOW: hidden;
+    BORDER-LEFT: yellow 1px solid;
+    BORDER-BOTTOM: yellow 1px solid;
+    BACKGROUND-COLOR: yellow
+}
+#clsUIselectContainer
+{
+    BORDER-RIGHT: yellow 2px solid;
+    BORDER-TOP: yellow 2px solid;
+    BORDER-LEFT: yellow 2px solid;
+    BORDER-BOTTOM: yellow 2px solid
+}
+#clsUIunselectContainer
+{
+    BORDER-RIGHT: gray 1px solid;
+    BORDER-TOP: gray 1px solid;
+    BORDER-LEFT: gray 1px solid;
+    BORDER-BOTTOM: gray 1px solid
+}
+.clsUImenu
+{
+    FONT-SIZE: 11px;
+    COLOR: white;
+    FONT-FAMILY: Arial;
+    BACKGROUND-COLOR: slategray
+}
+.clsUImenuBody
+{
+    MARGIN-TOP: 2px;
+    BACKGROUND-COLOR: slategray
+}
+.clsUIsmallLabel
+{
+    FONT-SIZE: 10px;
+    COLOR: cornflowerblue;
+    FONT-FAMILY: Arial
+}
+.clsFieldsLabel
+{
+    PADDING-LEFT: 4px;
+    FONT-WEIGHT: bold;
+    FONT-SIZE: 8pt;
+    MARGIN-BOTTOM: 0px;
+    PADDING-BOTTOM: 0px;
+    COLOR: black;
+    FONT-FAMILY: Arial;
+    BACKGROUND-COLOR: mistyrose
+}
+.clsFieldsBox
+{
+    BORDER-RIGHT: lightgrey 1px solid;
+    BORDER-TOP: lightgrey 1px solid;
+    FONT-SIZE: 8pt;
+    PADDING-BOTTOM: 4px;
+    BORDER-LEFT: lightgrey 1px solid;
+    WIDTH: 150px;
+    COLOR: gray;
+    BORDER-BOTTOM: lightgrey 1px solid;
+    BACKGROUND-COLOR: white
+}
+.clsFieldInBox
+{
+    PADDING-LEFT: 4px
+}
+.clsUIloading
+{
+    VISIBILITY: visible;
+    FONT-FAMILY: Arial
+}
+#clsUItemplateContentContainer
+{
+    BORDER-RIGHT: blue 2px solid;
+    BORDER-TOP: blue 2px solid;
+    BORDER-LEFT: blue 2px solid;
+    BORDER-BOTTOM: blue 2px solid
+}
+#clsUIexternalContent
+{
+    BORDER-RIGHT: dimgray 1px solid;
+    BORDER-TOP: dimgray 1px solid;
+    BORDER-LEFT: dimgray 1px solid;
+    BORDER-BOTTOM: dimgray 1px solid;
+    BACKGROUND-COLOR: yellow
+}
+#clsUIexternalContainer
+{
+    BORDER-RIGHT: yellow solid;
+    BORDER-TOP: yellow solid;
+    BORDER-LEFT: yellow solid;
+    BORDER-BOTTOM: yellow solid
+}
+.clsUIexternalContent
+{
+    BORDER: pink 2px solid;
+
+}
+.clsUIexternalContainer
+{
+}
+.MultichoiceAnswerButton
+{
+	padding-left:10px;
+	width:40px;
+}
+.footerstyle{
+border-top:1px solid #242424;
+background-color:#ffffff;
+width:746px;
+margin:10px;
+}

@@ -1,0 +1,1573 @@
+
+<!-- saved from url=(0082)http://my.hrw.com/controls/tree/tree_maker.jsp?key=SCIENCE&showHidden=&key=SCIENCE -->
+<html hc="b0"><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+
+<script language="javascript" src="tabnav_toc.jsp"></script><style type="text/css"></style>
+
+<script language="javascript">
+
+var TreeID=0;			// the tree being loaded
+var Tree = null;		// the container of the tree
+var g_nodeMap=new Object();
+var bNewLoader=true;
+var CurID = 0;			// currently selected node
+var NewID = 0;			// new nodes get this id
+var ExpNodes = new Array();
+var LastLeafID = 0;
+var bUseSelf = 0;
+var bLeafStyles = true;
+var showAllAltText = "false";
+var ST_COL=0;
+var ST_EXP=1;
+
+function isIE()
+{
+	return (navigator.appName.indexOf("Microsoft") != -1) ? true : false;
+}
+function isNS()
+{
+	return (navigator.appName.indexOf("Netscape") != -1) ? true : false;
+}
+
+function onLoad()
+{
+	makeNewTree();
+
+	/*
+		var theAnchor = document.anchors("\""+CurID+"\""); browser throw error because anchors is not a function
+		The line below fixes the problem
+	*/
+
+	var theAnchor = document.anchors["\""+CurID+"\""]; // WAS 6 migration - by Bobby
+
+	if (theAnchor != null)
+		theAnchor.click();
+		
+	/* not ready for prime time
+	if (window.parent.TreeCache == null)
+	{
+		makeNewTree();
+
+		TreeCache = Tree;
+	}
+	else
+	{
+		Tree = TreeCache;
+	}
+	*/
+}
+
+
+//****************** TREE PROPER **************************
+function EditOp()
+{
+	this.operation = "";				// text description
+}
+
+function setNodeHidden(isHidden)
+{
+	this.hidden = isHidden;
+}
+
+function setIcon(id,icon)
+{
+	var node;
+
+	node = g_nodeMap[id];
+	if (node != null)
+	{
+		node.icon = icon;
+	}
+}
+
+function TreeNode(id,parent_id,label,link,node_type,state,icon,prefix,type)
+{
+	this.id = id;						// unique id ( < 0 means new item)
+	this.parent_id = parent_id;			// parent node in tree
+	this.label = label;					// node label
+	this.link = link;					// content link (i.e., URL)
+	this.node_type = node_type;			// 0 = expand/collapse, 1 = link
+	this.node_state = state;			// 0 = collapsed, 1 = expanded
+	this.binding_id = 0;				// unbound
+	this.icon = icon;
+	this.editable = 1;					// editable
+	this.drop_target = 1-node_type;		// drop target
+	this.label_active = 1;				// does label activate
+	this.item_type = type;					// the item's application type
+	this.hidden = 0;					// 1 = item not displayed, 0 = item displayed
+	this.extra_indent = 0;				// number of extra levels to indent item
+	this.alt = "";                     // alt text for tree node icon image
+	
+	// child nodes, empty
+	this.children = new Array();
+
+	// name value pairs, extra data, empty - these are application specific
+	// properties, we don't care what's in here
+	this.props = new Array();
+
+	// edit related attributes, empty
+	this.added = 0;						// is this a brand new item?		- if 1, new
+	this.deleted = 0;					// is this item deleted?			- if 1, deleted
+	this.props_dirty = 0;				// have properties of item changed? - if 1, props have been changed
+	this.parent_changed = 0;			// was parent ordering changed?
+	this.visibility_changed = 0;		// did item become hidden or unhidden?
+	this.child_order_dirty = 0;			// has order of children changed?	- if 1, child order has been changed
+	
+	this.prefix = prefix;
+	this.item_type = type;
+	
+	this.setNodeHidden = setNodeHidden;
+	
+}
+
+function toggleNode(id)
+{
+	var i;
+	var tn;
+
+	CurID = id;
+
+	for (i = 0; i < Tree.length && tn == null; i++)
+	{
+		tn = findNode(Tree[i],id);
+	}
+	if (tn == null)
+	{
+		return;
+	}
+	if (tn.node_type == 0 || getNodeProp(tn,"item_type") == 15)
+	{
+
+		tn.node_state ^= ST_EXP;
+		if (tn.node_state == ST_COL)
+		{
+			removeExpNode(tn.id);
+		}
+		else if (tn.node_state == ST_EXP)
+		{
+			addExpNode(tn.id);
+		}
+	} // if
+}
+
+// This function expands a node.
+function expNode(id)
+{
+	var i;
+	var tn;
+
+	CurID = id;
+
+	for (i = 0; i < Tree.length && tn == null; i++)
+	{
+		tn = findNode(Tree[i],id);
+	}
+	if (tn == null)
+	{
+		return;
+	}
+	if (tn.node_type == 0)
+	{
+		tn.node_state = ST_EXP;
+		addExpNode(tn.id);
+	} // if
+}
+
+function addExpNode(id)
+{
+	ExpNodes[ExpNodes.length] = id;
+}
+function removeExpNode(id)
+{
+	var i,j,ret=0;
+
+	for (i = 0; i < ExpNodes.length; i++)
+	{
+		if (ExpNodes[i] == id)
+		{
+			ret = 1;
+			for (j = i; j < ExpNodes.length; j++)
+			{
+				ExpNodes[j] = ExpNodes[j+1];
+			}
+			ExpNodes.length = ExpNodes.length-1;
+			break;
+		}
+	}
+	return ret;
+}
+function getExpList()
+{
+	var s;
+	var i;
+
+	s = "";
+	for (i = 0; i < ExpNodes.length; i++)
+	{
+		if (i > 0)
+			s += "^";
+		s += ExpNodes[i];
+	}
+	return s;
+}
+function setExpList(s)
+{
+	var pos1,id,count;
+
+	count = 0;
+	while (s.length > 0)
+	{
+		pos1 = s.indexOf("^");
+		if (pos1 == -1)
+		{
+			id = s;
+			s = "";
+		}
+		else
+		{
+			id = s.substring(0,pos1);
+			s = s.substring(pos1+1,s.length);
+		}
+		toggleNode(id);
+
+		count++;
+	}
+}
+
+function selectNode(id)
+{
+	CurID = id;
+}
+
+
+// this method finds non deleted nodes
+function getNode(id)
+{
+	var i;
+	var tn;
+
+	for (i = 0; i < Tree.length && tn == null; i++)
+	{
+		tn = findNode(Tree[i],id);
+	}
+
+	return tn;
+}
+
+function getNode_old(id)
+{
+	tn = findNode(Tree[0],id);
+	return tn;
+}
+
+function findNode(tn,id)
+{
+	var tnRet = null;
+	var i;
+	var tnc=null,tnr=null;
+
+	if (tn == null)
+		return null;
+
+	if (tn.id == id && tn.deleted == 0)  // DS only find non-deleted nodes
+	{
+		return tn;
+	}
+	else
+	{
+		for (i = 0; i < tn.children.length; i++)
+		{
+			tnc = tn.children[i];
+
+			tnr = findNode(tnc,id);
+			if (tnr != null)
+			{
+				return tnr;
+			} // if
+		} // for
+	} // else
+
+	return tnRet;
+}
+
+function renderTree()
+{
+	var i,j,k;
+	var s;
+
+	pg = window.parent.getPageFrame();
+	body = pg.document.body;
+
+	max_levels = 5;
+
+	s = "";
+	s += "<NOBR>";
+
+	// IE versus NS
+	if (isIE())
+	{
+		s += "<UL ID=\"ulRoot\" class=\"clsList\">";
+	}
+
+	for (i = 0; i < Tree.length; i++)
+	{
+		tn1 = Tree[i];
+		
+		if(tn1.deleted == null)
+			tn1.deleted = 0;
+		s += renderNode(tn1,0);
+
+	} // for
+
+	// IE versus NS
+	if (isIE())
+	{
+		s += "</UL>";
+	}
+
+	s += "</NOBR>";
+
+
+	//***********************************************
+	// Write the entire page document.
+	// Note: Need to break up the writing of a script tag.
+
+	// build the CSS section
+	var css1 = "<" + "LI";
+	var css2 = "NK REL=\"stylesheet\" TYPE=\"text/css\" HREF=\"/tabnav/controls/tree/styles/tabnav_toc.css\"><\/LINK>";
+
+	// formulate our final html output
+
+	// html has to be broken up due to NS issue
+	var html1 = "<html><head><title></title>" + css1;
+	var html2 = "" + css2;
+	var html3 = "</head><body class=\"clsPage\" style=\"\" >";
+
+	html3 += "<form name=\"form_data\" action=\"" +
+		"http://www.iconstructs.com" + "\" target=\"_top\">";
+
+	html3 += "<input type=\"hidden\" name=\"hTreeID\">";
+	html3 += "<input type=\"hidden\" name=\"hItemID\">";
+	html3 += "<input type=\"hidden\" name=\"hItemType\">";
+	html3 += "<input type=\"hidden\" name=\"hExpIDs\" value=\"" + getExpList() + "\">";
+	html3 += "<input type=\"hidden\" name=\"hIDType\" value=\"tiid\">";
+	html3 += "<input type=\"hidden\" name=\"hSpecial1\" value=\"\">";
+	html3 += "<input type=\"hidden\" name=\"hSpecial2\" value=\"\">";
+
+	// NOTE: this will cause an error if func is not implemented in populator output
+	if(window.getPageHeader != null)
+	{
+		html3 += getPageHeader();
+	}
+
+	html3 += "<layer id=\"hovrLayr\"></layer>";
+	html3 += s;
+	html3 += "</form></body></html>";
+
+	if (bUseSelf)
+	{
+		// to do - change all this
+	}
+	else
+	{
+		// html has to be broken up due to NS issue
+		pg.document.write(html1);
+		pg.document.write(html2);
+		pg.document.write(html3);
+		pg.document.close();
+	}
+
+	if (isNS() && false)
+		parent.nsHover();
+}
+
+function renderNode(tn,level)
+{
+	var i;
+	var s;
+	var tnc;
+	var img;
+	var evts;
+	var xstyle;
+	var xclass;
+
+	s = "";
+
+	// DS don't render deleted or hidden node
+	if(tn == null)
+		return s;
+	if (tn.deleted !=0)
+		return s;
+	// MB show only hidden nodes if showHidden parameter is true
+	//    show only non-hidden nodes if showHidden parameter is false
+	if (!false && (tn.hidden !=0))
+		return s;
+	else if (false && (tn.hidden ==0))
+		return s;
+
+	// check which style class to use to format the node
+	if (bLeafStyles)
+	{
+		if (tn.node_type == 0)
+			xclass = (tn.id == CurID) ? "clsCurListItem" : "clsListItem";
+		else if (tn.node_type == 1)
+			xclass = (tn.id == CurID) ? "clsCurListLinkItem" : "clsListLinkItem";
+	}
+	else
+	{
+		xclass = (tn.id == CurID) ? "clsCurListItem" : "clsListItem";
+	}
+
+	// draw the node itself
+	img = getImage(tn);
+	if (isIE())
+	{
+		for (var i = 0; i < tn.extra_indent; i++)
+		{
+			s += "<UL class=\"clsList\" style=\"margin-left:25px\">";
+		}
+		
+		xstyle = "";
+
+		evts = "onMouseOver=\"window.parent.tEn(this)\" onMouseOut=\"window.parent.tEx(this)\"";
+
+		if (tn.label_active)
+		{
+			//this is a temporary fix for the discussion board - a discussion item
+			//needs to be clickable no matter what, but it also must have expand/collapse
+			//capability, so I put in a special case here.
+
+			//10-15-2001 CC:  This special case now also applies to the doc library
+			if (getNodeProp(tn,"item_type") == 15 || getNodeProp(tn,"item_type") == 32)
+			{
+				evts += " onclick=\"window.parent.tClk(this,'" + tn.link + "')\"";
+			}
+			else if (tn.node_type == 0 && getNodeProp(tn,"item_type") != 15)
+			{
+				evts += " onclick=\"window.parent.nodeClk('" + tn.id + "')\"";
+			}
+			else if (tn.node_type == 1 && getNodeProp(tn,"item_type") != 15)
+			{
+				evts += " onclick=\"window.parent.tClk(this,'" + tn.link + "')\"";
+			}
+		}
+		else
+		{
+			evts += " onclick=\"window.parent.tSel('" + tn.id + "')\"";
+		}
+
+		if (tn.node_type == 1 && showAllAltText == "false")
+		{
+			s += "<LI class=\"clsListItem\">";
+			s += "<span style=\"cursor:hand\" onclick=\"javascript:window.parent.nodeClk('" + tn.id + "')\">";
+			s += "<IMG WIDTH=\"16\" HEIGHT=\"16\" SRC=\"" + img + "\" />";
+			s += "</span>";		
+			s += "&nbsp;<a name=\"" + tn.id + "\" id=\"" + tn.id + "\" class=\"" + xclass + "\" style=\"cursor:hand" + xstyle + "\"" + evts + ">" + tn.label + "</a>";
+			s += "</LI>\n";
+		}
+		else
+		{
+			s += "<LI class=\"clsListItem\">";
+			s += "<a style=\"cursor:hand\" onclick=\"javascript:window.parent.nodeClk('" + tn.id + "')\">";
+			s += "<IMG WIDTH=\"16\" HEIGHT=\"16\" SRC=\"" + img + "\" ALT=\"" + tn.alt + "\" />";
+			s += "</a>";
+			s += "&nbsp;<a name=\"" + tn.id + "\" id=\"" + tn.id + "\" class=\"" + xclass + "\" style=\"cursor:hand" + xstyle + "\"" + evts + ">" + tn.label + "</a>";
+			s += "</LI>\n";
+		}
+
+		for (var i = 0; i < tn.extra_indent; i++)
+		{
+			s += "</UL>";
+		}
+	}
+	else if (isNS())
+	{
+		var adjustedLevel = level + tn.extra_indent;
+
+		s += "<img src=\"/controls/tree/images/1.gif\" width=\"" + 25*adjustedLevel + "px\" height=\"1px\">";
+
+		evts = "";
+		if (tn.label_active)
+		{
+			if (tn.node_type == 0)
+			{
+				href = "javascript:window.parent.nodeClk('" + tn.id + "')";
+			}
+			else if (tn.node_type == 1)
+			{
+				href = "javascript:window.parent.tClk(this,'" + tn.link + "')";
+			}
+		}
+		else
+		{
+			href = "javascript:window.parent.tSel('" + tn.id + "')";
+		}
+		
+		if (tn.node_type == 1 && showAllAltText == "false")
+		{
+			s += "<IMG WIDTH=\"16\" HEIGHT=\"16\" SRC=\"" + img + "\" border=\"0\" />";
+			s += "<a name=\"" + tn.id + "\" href=\"" + href + "\">";
+			s += "<font class=\"" + xclass + "\">" +  tn.label + "</font>";
+			s += "</a>";
+			s += "<br>\n";
+		}
+		else
+		{
+			s += "<a name=\"" + tn.id + "\" href=\"" + href + "\">";
+			s += "<IMG WIDTH=\"16\" HEIGHT=\"16\" SRC=\"" + img + "\" ALT=\"" + tn.alt + "\" border=\"0\" />";
+			s += "<font class=\"" + xclass + "\">" +  tn.label + "</font>";
+			s += "</a>";
+			s += "<br>\n";
+		}		
+	}
+
+
+	// draw the node's children
+	if (tn.node_state != ST_COL)
+	{
+		if (isIE())
+		{
+			s += "<UL class=\"clsList\" style=\"margin-left:25px\">";
+		}
+		for (i = 0; i < tn.children.length; i++)
+		{
+			tnc = tn.children[i];
+			if(tnc == null)
+				break;
+			s += renderNode(tnc,level+1);
+		} // for
+		if (isIE())
+		{
+			s += "</UL>";
+		}
+	} // if
+
+	return s;
+}
+
+function isParent(tn)
+{
+	return (tn.node_type == 0) ? true : false;
+}
+
+function hasChildren(tn)
+{
+	if (tn.node_type == 0)
+	{
+		// can have children
+		if (getNumberChildren(tn) > 0)  // DS need to check non deleted children
+			return true;
+		else
+			return false;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+function isExpanded(tn)
+{
+	return (tn.node_state == ST_COL) ? false : true;
+}
+
+function isTerminalNode(tn)
+{
+	return (getNumberChildren(tn) > 0) ? false : true; // DS need to look at number of non-deleted children
+}
+
+function getImage(tn)
+{
+	sPath = "/tabnav/controls/tree/images/history_toc/";
+
+	if (tn.icon != null)
+	{
+		img = sPath + tn.icon;
+	}
+	else
+	{
+		if (tn.node_state == ST_EXP)
+		{
+			// node is expanded
+			img = sPath + "tree_bo.gif";
+			tn.alt = "Open";
+	 	}
+		else
+		{
+			if (tn.node_type == 0)
+			{
+				img = sPath + "tree_bs.gif";
+				tn.alt = "Closed";
+			}
+			else if (tn.node_type == 1)
+			{
+				img = sPath + "tree_doc.gif";
+				tn.alt = "Section";
+			}
+			else if (tn.node_type == 2)
+			{
+				img = sPath + "tree_doc_blue.gif";
+			}
+			else if (tn.node_type == 3)
+			{
+				img = sPath + "tree_doc_red.gif";
+			}
+		}
+	}
+	return img;
+}
+
+function org_removeNode(id,reselect)
+{
+	tnc = getNode(id);
+	tnp = getNode(tnc.parent_id);
+	for (i = 0; i < tnp.children.length; i++)
+	{
+		tnt = tnp.children[i];
+		if (tnt.id == id)
+		{
+			for (j = i; j < tnp.children.length-1; j++)
+			{
+				tnp.children[j] = tnp.children[j+1];
+			}
+			tnp.children.length = tnp.children.length - 1;
+
+			if (reselect && tnp.children.length > 0)
+			{
+			    if(i==tnp.children.length)
+			        i=i-1; // removed last child
+				CurID = tnp.children[i].id;
+			}
+			else
+				CurID = 0;
+
+			break;
+		}
+	}
+}
+
+
+// MB setNodeHiddenRecurse() hides or shows a node and its children recursively.
+function setNodeHiddenRecurse(tn,isHidden,reselect)
+{
+	if (tn == null)
+		return null;
+
+	tn.hidden = isHidden;
+	tn.visibility_changed = 1;
+	var i;
+	var tnc=null;
+
+	for (i = 0; i < tn.children.length; i++)
+	{
+		tnc = tn.children[i];
+		setNodeHiddenRecurse(tnc,isHidden,reselect);
+	} // for
+
+}
+
+
+
+// DS removeNode  marks node , and subtree  as deleted when existing node is deleted
+// when added node is deleted, remove node  from tree
+function removeNode(id,reselect)
+{
+	var i,j;
+
+	var tnc = getNode(id);
+	
+	if(tnc == null)
+	{
+		alert("There is no item currently selected. Please select an item!");
+		return;
+	}
+	else if(tnc.deleted !=0)
+		return;
+	
+	//If there is no parent_id, then this is the root node
+	else if(tnc.parent_id == "0"){}	
+	else
+	{
+		var tnp = getNode(tnc.parent_id);
+		var numC = getNumberChildren(tnp);
+		var order = getOrder(tnc);
+		// check if this is last child
+		// alert("removing node order:"+ order + "of:"+numC);
+		var isLast = (order ==  numC -1);
+	}
+
+	if(tnc.added ==0)
+		setDelete(tnc,1);
+	else
+		removeNodeFromArrayByID(tnp.children, id);
+
+	// if this is not the last node, the parent has had its children reordered
+	if(!isLast && tnp != null)
+		tnp.child_order_dirty = 1;
+	if( reselect !=0 && tnp != null)
+	{
+		if(numC ==1 )
+			CurID = tnp.id;  // have deleted all children, select parent
+		else if(isLast)
+			CurID = getChildIDByOrder(tnp,order  -1 );
+		else
+			CurID = getChildIDByOrder(tnp,order);
+
+	}
+}
+
+
+
+
+
+/**
+ * remove node from array
+ * paramter ar, array of nodes
+ * parameter id, id   of node to be removed
+ */
+
+ function removeNodeFromArrayByID(ar,id)
+ {
+	var i,j;
+	var len = ar.length;
+	var newlen;
+	for(i=0;i < len;i++)
+	{
+		if(ar[i].id == id)
+		{
+			newlen = len-1;
+			for(j = i;j < newlen;j++)
+			{
+				ar[j]=ar[j+1];
+			}
+			ar.length = newlen;
+			break;
+		}
+	}
+ }
+
+// function to get order  of node  ( position as child of parent, )
+// ignore deleted nodes
+// does not check if tn is deleted
+// the first node has order 0.
+function getOrder(tn )
+{
+	 var tnp = getNode(tn.parent_id);
+	 if(tnp==null)
+	    return 0; // root node has no parent TODO more than one root.
+	 var i,node;
+	 var id = tn.id;
+	 var ca = tnp.children;
+	 var order = 0;
+	 for(i=0;i < ca.length;i++)
+	 {
+		node = ca[i];
+		if(node == null)
+			break;
+		else if(node.id == id)
+			break;
+		else if(node.deleted ==0)
+			order++;
+	 }
+	 return order;
+}
+
+
+// get number of ( non deleted childen )
+// hidden children are counted
+function getNumberChildren(tn)
+{
+	var i;
+	var nc=0;
+	var ca = tn.children;
+	var len_ca = ca.length;
+	for(i=0;i < len_ca;i++)
+	{
+		if(ca[i].deleted ==0)
+			nc++;
+	}
+	return nc;
+}
+
+
+
+
+/** Get the child ID at given position, starting at 0.
+ *  return null if none
+ * parameter tn tree node
+ * parameter pos position in ordering of children of  required  child node
+ *  return id of child node
+ */
+function getChildIDByOrder(tn,pos)
+{
+	var ca = tn.children;
+	var ca_len = ca.length;
+	var i;
+	var cpos =0;
+
+	for(i=0;i < ca_len;i++)
+	{
+		if(ca[i].deleted ==0)
+		{
+			if(cpos++ == pos)
+				return ca[i].id;
+		}
+	}
+	return null;
+}
+
+// function to set delete flag of node and descendants
+
+function setDelete( tn, value)
+{
+	var i;
+	tn.deleted = value;
+	var cnodes = tn.children;
+	var n = cnodes.length;
+	for(i=0;i<n;i++)
+		setDelete(cnodes[i],value);
+}
+
+function nodeUp(id)
+{
+	tnc = getNode(id);
+	tnp = getNode(tnc.parent_id);
+	if (tnp == null)
+		return;
+	for (i = 0; i < tnp.children.length; i++)
+	{
+		tnc = tnp.children[i];
+		if (tnc.id == id && i > 0)
+		{
+			tnt = tnp.children[i-1];
+			tnp.children[i-1] = tnc;
+			tnp.children[i] = tnt;
+			// set parents reorder flag
+			tnp.child_order_dirty=1;
+			break;
+		}
+	}
+}
+
+function nodeDown(id)
+{
+	tnc = getNode(id);
+	tnp = getNode(tnc.parent_id);
+	if (tnp == null)
+		return;
+	for (i = 0; i < tnp.children.length; i++)
+	{
+		tnc = tnp.children[i];
+		if (tnc.id == id && i < tnp.children.length - 1)
+		{
+			tnt = tnp.children[i+1];
+			tnp.children[i+1] = tnc;
+			tnp.children[i] = tnt;
+			// set parents reorder flag
+			tnp.child_order_dirty=1;
+			break;
+		}
+	}
+}
+
+function nodeLeft(id)
+{
+	tnc = getNode(id);
+	if (tnc.parent_id == "0")
+	{
+		return;
+	}
+
+	// get parent
+	tnp = getNode(tnc.parent_id);
+	if (tnp == null)
+		return;
+
+	// get parent's parent
+	tnpp = getNode(tnp.parent_id);
+	if (tnpp == null)
+		return;
+
+	// rearrange
+	for (i = 0; i < tnpp.children.length; i++)
+	{
+		tnt = tnpp.children[i];
+
+		// is this the parent
+		if (tnp.id == tnt.id)
+		{
+			// move down
+			for (j = tnpp.children.length; j >= i ; j--)
+			{
+				tnpp.children[j] = tnpp.children[j-1];
+			}
+			// insert
+			tnc.parent_id = tnpp.id;
+			tnpp.children[i] = tnc;
+
+			break;
+		}
+	}
+	// remove from old parent
+	for (i = 0; i < tnp.children.length; i++)
+	{
+		tnt = tnp.children[i];
+
+		// is this the parent
+		if (tnc.id == tnt.id)
+		{
+			// move up
+			for (j = i+1; j < tnp.children.length; j++)
+			{
+				tnp.children[j-1] = tnp.children[j];
+			}
+			// delete
+			tnp.children.length = tnp.children.length - 1;
+			//tnp.children[tnp.children.length-1] = null;
+
+			break;
+		}
+	}
+	// parent has changd
+	tnc.parent_changed=1;
+	// children  of orginal parent are reordered (  TODO check if not last )
+	tnp.child_order_dirty =1;
+	tnpp.child_order_dirty =1;
+}
+
+function nodeRight(id)
+{
+	// selected node
+	tnc = getNode(id);
+	if (tnc.parent_id == "0")
+	{
+		return;
+	}
+
+	// get parent
+	tnp = getNode(tnc.parent_id);
+	if (tnp == null)
+		return;
+
+	// get next sibling
+	for (i = 0; i < tnp.children.length; i++)
+	{
+		tnt = tnp.children[i];
+
+		// at current node
+		if (tnt.id == tnc.id)
+		{
+			if (i == tnp.children.length - 1)
+			{
+				return;
+			}
+			tncc = tnp.children[i+1];
+			break;
+		}
+	}
+
+	// insert to new parent
+	tnc.parent_id = tncc.id;
+	tncc.children[tncc.children.length] = tnc;
+	tncc.node_state = ST_EXP;
+
+	// remove from old parent
+	for (i = 0; i < tnp.children.length; i++)
+	{
+		tnt = tnp.children[i];
+
+		// is this the parent
+		if (tnc.id == tnt.id)
+		{
+			// move up
+			for (j = i+1; j < tnp.children.length; j++)
+			{
+				tnp.children[j-1] = tnp.children[j];
+			}
+			// delete
+			tnp.children.length = tnp.children.length - 1;
+			//tnp.children[tnp.children.length-1] = null;
+
+			break;
+		}
+	}
+	// parent has changd
+	tnc.parent_changed=1;
+	// children  of orginal parent are reordered (  TODO check if not last )
+	tnp.child_order_dirty =1;
+	tncc.child_order_dirty =1;
+}
+
+function setCurNode(id)
+{
+	alert("setCurNode("+id+")");
+	CurID = id;
+}
+
+// RR - Commented out the extra addTreeNode() functions because they never get called.
+// If multiple functions contain the same name, javascript always calls the last one defined.
+// Also, if a javascript function is called with less than the required number of parameters,
+// the non-specified params at the end will be null.  This is why these additional addTreeNode()
+// functions appeared to be doing something, but in reality, were never being entered. The overall
+// issue here is that javascript does not support function overloading.
+//
+//// basic add
+//function addTreeNode(id,parent_id,type,label,link,exp)
+//{
+//	// note that icon is null, pos is unknown
+//	return addTreeNode(id,parent_id,type,label,link,exp,null,null);
+//}
+//
+//function addTreeNode(id,parent_id,type,label,link,exp,icon)
+//{
+//	// note that icon is null, pos is unknown
+//	return addTreeNode(id,parent_id,type,label,link,exp,icon,null);
+//}
+
+// adds a node
+function addTreeNode(id,parent_id,type,label,link,exp,icon,pos)
+{
+	var tnt;
+	var tnp;
+	
+	if (bNewLoader)
+		tnp = g_nodeMap[parent_id];
+	else
+		tnp = getNode(parent_id);
+
+	if (tnp != null)
+	{
+		tnt = new TreeNode(id,tnp.id,label,link,type,exp,icon,null,type);
+		
+		if (pos == null)
+		{
+			count = tnp.children.length;
+			tnp.children[count] = tnt;
+		}
+		else
+		{
+			if (tnp.children.length > 0)
+			{
+				for (i = 0; i < tnp.children.length; i++)
+				{
+					if (i == pos)
+					{
+						// slide up
+						for (j = tnp.children.length - 1; j >= pos; j--)
+						{
+							tnp.children[j] = tnp.children[j-1];
+						}
+						tnp.children[i] = tnt;
+						break;
+					}
+				}
+			}
+			else
+			{
+				tnp.children[pos] = tnt;
+			}
+		}
+	}
+	else
+	{
+		if (parent_id != 0)
+		{
+			// did not find valid parent
+			return null;
+		}
+	
+		tnt = new TreeNode(id,0,label,link,type,exp, null, null, type);
+
+		if (pos != null)
+		{
+			//alert("here - " + label);
+
+			if (Tree.length > 0)
+			{
+				for (i = 0; i < Tree.length; i++)
+				{
+					if (i == pos)
+					{
+						// slide up
+						for (j = Tree.length - 1; j >= pos; j--)
+						{
+							Tree[j+1] = Tree[j];
+						}
+						Tree[i] = tnt;
+						break;
+					}
+				}
+			}
+			else
+			{
+				Tree[Tree.length] = tnt;
+			}
+		}
+		else
+		{
+			Tree[Tree.length] = tnt;
+		}
+	}
+	if (bNewLoader)
+		g_nodeMap [tnt.id] = tnt;
+	return tnt;
+}
+
+//updates a tree node
+
+function updateTreeNode(id,parent_id,type,prefix,raw_label,link,exp,icon,pos)
+{
+	var tnt,tn;
+	var tnp;
+
+
+	if (bNewLoader)
+	{
+		tnp = g_nodeMap[parent_id];
+	}
+	else if(parent_id != "0")
+	{
+		tnp = getNode(parent_id);
+	}
+	
+	
+	if (tnp != null)
+	{
+		tn = new TreeNode(id,tnp.id,prefix + " " + raw_label,link,type,exp,icon,prefix,type);
+		tn.raw_label = raw_label;
+		tnp.children[getOrder(tn)] = tn;
+			
+		tn.edited = 1;
+		tn.deleted = 0;
+		tn.id = id;
+		addEditEntry(tn);
+	}
+	else
+	{
+		
+		alert("The root item can not be edited!");
+	}
+	
+		
+		return tn;
+	
+}
+
+function addChildTreeNode(tnc,parent_id)
+{
+	var tnp;
+
+	tnp = getNode(parent_id);
+	tnp.child_order_dirty = 1;
+
+	if (tnp != null)
+	{
+		tnc.parent_id = tnp.id;
+		tnp.children[tnp.children.length] = tnc;
+		tnp.node_state = ST_EXP;
+	}
+}
+
+function deleteTreeNode(id,reselect)
+{
+	removeNode(id,reselect);
+}
+
+function getCurNodeID()
+{
+	return CurID;
+}
+
+function getCurNode()
+{
+	return getNode(CurID);
+}
+
+
+function moveTreeNode(dir,id)
+{
+	if (dir == 0)
+		nodeUp(id);
+	else if (dir == 1)
+		nodeDown(id);
+
+	renderTree();
+}
+
+function bindTreeNode(id,lib_item_id)
+{
+	var tnt;
+
+	tnt = getNode(id);
+	tnt.binding_id = lib_item_id;
+}
+
+function setNodeEditable(id,editable)
+{
+	var tnt;
+
+	tnt = getNode(id);
+	tnt.editable = editable;
+}
+function isNodeEditable(id)
+{
+	var tnt;
+
+	tnt = getNode(id);
+	return tnt.editable;
+}
+
+function setNodeDropTarget(id,target)
+{
+	var tnt;
+
+	tnt = getNode(id);
+	tnt.drop_target = target;
+}
+function isNodeDropTarget(id)
+{
+	tnt = getNode(id);
+	return tnt.drop_target;
+}
+
+// RR - Commented out the extra setNodeLabelActive() and isNodeLabelActive() functions because they never get called.
+// If multiple functions contain the same name, javascript always calls the last one defined reguardless if they have
+// different numbers of parameters (ie, javascript does not support function overloading).
+//
+//function setNodeLabelActive(id,active)
+//{
+//	var tnt;
+//
+//	tnt = getNode(id);
+//	tnt.label_active = active;
+//}
+function setNodeLabelActive(tnt,id,active)
+{
+	tnt.label_active = active;
+}
+//function isNodeLabelActive(id)
+//{
+//	var tnt;
+//
+//	tnt = getNode(id);
+//	return tnt.label_active;
+//}
+function isNodeLabelActive(tnt)
+{
+	return tnt.label_active;
+}
+
+function generateNewID()
+{
+	// new ids are always < 0
+	NewID--;
+	return NewID;
+}
+
+
+//************************
+
+function setProp(tn,name,val)
+{
+	tn.props[tn.props.length] = name + "=" + val;
+}
+
+function getNodeProp(tn,name)
+{
+	var i;
+	var s;
+	var val=null;
+	var pos;
+
+	for (i = 0; i < tn.props.length; i++)
+	{
+		s = tn.props[i];
+		if ( (pos = s.indexOf(name + "=")) != -1)
+		{
+			val = s.substring(name.length+1,s.length);
+			break;
+		} // if
+	} // for
+	return val;
+}
+
+//*******************
+
+function nodeToXML(tn)
+{
+	var s;
+	s="";
+	s+="<id>" + tn.id + "</id>\n";
+	s+="<label>" + tn.label + "</label>\n";
+	s+="<parentId>" + tn.parent_id + "</parentId>\n";
+	if(tn.link != null)
+		s+="<link>" + tn.link + "</link>\n";
+	s+="<nodeType>" + tn.node_type + "</nodeType>\n";
+	s+="<nodeState>" + tn.node_state + "</nodeState>\n";
+	s+="<bindingId>" + tn.binding_id + "</bindingId>\n";
+	if(tn.icon != null )
+		s+="<icon>" + tn.icon +  "</icon>\n";
+	s+="<editable>" + tn.editable + "</editable>\n";
+	s+="<dropTarget>" + tn.drop_target + "</dropTarget>\n";
+	s+="<labelActive>" + tn.label_active + "</labelActive>\n";
+	s+="<itemType>" + tn.item_type + "</itemType>\n";
+	s+="<hidden>" + tn.hidden + "</hidden>\n";
+		// need to give order here - this is the actual order
+	// TODO could optimize by passing order in to this method
+
+	// added by KP
+	if(getNodeProp(tn,"prefix") != null)
+		s += "<prefix>" + getNodeProp(tn,"prefix") + "</prefix>\n";
+	else
+		s += "<prefix>" + tn.prefix + "</prefix>\n";
+	if(getNodeProp(tn,"raw_label") != null)
+		s += "<raw_label>" + getNodeProp(tn,"raw_label") + "</raw_label>\n";
+	else
+		s += "<raw_label>" + tn.raw_label + "</raw_label>\n";
+	if(getNodeProp(tn,"item_type")!= null)
+		s += "<item_type>" + getNodeProp(tn,"item_type")  + "</item_type>\n";
+	else
+		s += "<item_type>" + tn.item_type  + "</item_type>\n";
+	
+	
+	s+="<order>" + getOrder(tn) + "</order>\n";
+	
+	
+	// TO DO props
+	return s;
+}
+
+
+//*******************
+// get XML representation of order of child nodes
+// parameter Child Node array
+
+function orderToXML( ca )
+{
+	var s = "";
+	var n = ca.length;
+	var i;
+	var node;
+	var order = 0;
+	for(i=0; i < n;i++)
+	{
+		node = ca[i];
+		if(node.deleted !=0)
+			continue;
+
+		s+="<child id=\"" + node.id + "\"><order>" + order++ + "</order></child>\n";
+	}
+	return s;
+
+}
+
+//************************
+
+function addEditEntry(tn)
+{
+	var s;
+
+	s = "";
+	// check the state of the node,
+	// if changed, build XML
+	// there are four  cases added, deleted , edited, and nothing
+	//
+	// Issue: when adding when do you specify order of a node at parent or at node?
+	// it would seem to belong the node
+	// it would be an optimisation to specify it at the node
+	// Issue need to look at optimizing reordering - here or on server
+	if (tn.added !=0 )
+	{
+		s = "<addNode id=\"" + tn.id + "\">\n";
+		s+=nodeToXML(tn);
+		s+="</addNode>\n";
+		// if added can ignore dirty flags
+		// need to do child order here ?
+		return s;
+
+	}
+	else if (tn.edited !=0 && tn.edited != null )
+	{
+		s = "<editNode id=\"" + tn.id + "\">\n";
+		s+=nodeToXML(tn);
+		s+="</editNode>\n";
+		// if added can ignore dirty flags
+		// need to do child order here ?
+		
+	
+		return s;
+		
+		
+	}
+	else if (tn.visibility_changed != 0)
+	{
+		if (tn.hidden)
+			s = "<hideNode id= \"" + tn.id + "\"></hideNode>\n";
+		else
+			s = "<showNode id= \"" + tn.id + "\"></showNode>\n";
+		if(tn.parent_changed != 0)
+		{
+			s+= "<editNode id = \"" + tn.id + "\">\n";
+			s+="<parentId>" + tn.parent_id + "</parentId>\n";
+			s+="</editNode>\n"
+		}
+		if(tn.child_order_dirty !=0)
+		{
+			s+="<orderChildren id= \"" + tn.id + "\">\n" + orderToXML(tn.children) + "</orderChildren>\n";
+
+		}
+		return s;
+	}
+	else if(tn.hidden !=0)
+	{ // assume that children are marked as hidden at hide time?
+		s = "<hideNode id= \"" + tn.id + "\"></hideNode>\n";
+		if(tn.parent_changed != 0)
+		{
+			s+= "<editNode id = \"" + tn.id + "\">\n";
+			s+="<parentId>" + tn.parent_id + "</parentId>\n";
+			s+="</editNode>\n"
+		}
+		return s;
+	}
+	else if(tn.deleted !=0)
+	{  // assume that children are marked as  deleted at delete time?
+		s = "<deleteNode id= \"" + tn.id + "\"></deleteNode>\n";
+		return s;
+	}
+	else if(tn.parent_changed != 0) // edit existing node
+	{
+	
+		s = "<editNode id = \"" + tn.id + "\">\n";
+		s+="<parentId>" + tn.parent_id + "</parentId>\n";
+		s+="</editNode>\n"
+	}
+	else if(tn.child_order_dirty !=0)
+	{
+		s+="<orderChildren id= \"" + tn.id + "\">\n" + orderToXML(tn.children) + "</orderChildren>\n";
+
+	}
+	
+
+	return s;
+}
+
+
+//****************************************
+// get edit info
+//****************************************
+function getEditList()
+{
+	var s = "";
+	var i;
+	// alert("in getEditList");
+
+	// traverse the tree
+	for(i=0;i< Tree.length;i++)
+	{
+		s += getEdits(Tree[i]);
+	}
+
+	return s;
+}
+
+function getEdits( tn )
+{
+	// alert("getEdits:" + tn.id);
+	var s = "";
+	var ca = tn.children;
+	var n = ca.length;
+	var i;
+	//a= n.foo.yoi;
+
+	s+=addEditEntry(tn);
+	for(i=0;i < n ; i++)
+	{
+		s+=getEdits(ca[i]);
+	}
+	return s;
+}
+
+
+//****************************************
+// clear edit info
+//****************************************
+/**
+ * clear all edit flags
+ * called afer tree is saved
+ */
+
+ function clearEditList()
+ {
+    var i;
+    for(i=0;i < Tree.length;i++)
+    {
+        clearNodeEdits(Tree[i]);
+    }
+ }
+
+/**
+ * clear edits on node and descendants
+ */
+function clearNodeEdits( tn )
+{
+    var i;
+    tn.added = 0;
+    tn.deleted = 0;
+    tn.props_dirty = 0;
+    tn.parent_changed = 0;
+    tn.visibility_changed = 0;
+    tn.child_order_dirty = 0;
+
+    var cn = tn.children;
+    var num = cn.length;
+    for(i = 0; i < num; i++)
+    {
+        clearNodeEdits(cn[i]);
+    }
+
+}
+
+
+
+function lycapi_addItem(parent_item_id,item_prefix,item_raw_label,item_type,node_type, sibling)
+{
+	var label,tn,tnp, parentNode;
+	
+	if (item_prefix != null && item_prefix.length != 0)
+		label = item_prefix + " " + item_raw_label;
+	else
+		label = item_raw_label;
+	
+	//If the item is to be added as a sibling, then get the 	
+	if(sibling)
+	{
+		parentNode = getNode(parent_item_id);
+		if(parentNode != null)
+		{
+			parent_item_id = parentNode.parent_id;
+		}
+	}
+
+	tn = addTreeNode(generateNewID(),parent_item_id,node_type,label,null,0)
+	setProp(tn,"prefix",item_prefix);
+	setProp(tn,"raw_label",item_raw_label);
+	setProp(tn,"item_type",item_type);
+	tn.added = 1;
+
+	return tn;
+}
+
+
+
+function lycapi_getTreeID()
+{
+	return TreeID;
+}
+
+</script>
+</head>
+
+<body onload="onLoad()" marginwidth="0" marginheight="0">
+
+
+</body></html>
